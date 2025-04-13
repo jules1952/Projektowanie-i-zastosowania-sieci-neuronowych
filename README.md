@@ -3,7 +3,7 @@
 
 # 🧠 Autoenkoder – rekonstrukcja obrazów
 
-Projekt przedstawia prostą implementację autoenkodera w Pythonie, służącego do rekonstrukcji obrazów przy użyciu podstawowych bibliotek (brak bibiotek wbudowanych)
+Projekt przedstawia prostą implementację autoenkodera w Pythonie, służącego do rekonstrukcji obrazów przy użyciu podstawowych bibliotek.
 
 ## 📂 Opis
 
