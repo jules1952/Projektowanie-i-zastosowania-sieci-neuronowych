@@ -9,9 +9,12 @@ import matplotlib.pyplot as plt
 
 IMAGE_SIZE = (64, 64)  # Ustawiamy obrazy 32x32
 #TRAIN_DIR = r'C:\Users\julia\Desktop\autoencoder\photos\train\happy'
-TRAIN_DIR = r'C:\Users\julia\Desktop\autoencoder\banana'
+#TRAIN_DIR = r'C:\Users\julia\Desktop\autoencoder\banana'
 
-TEST_DIR  = r'C:\Users\julia\Desktop\autoencoder\photos\test\happy'
+#TEST_DIR  = r'C:\Users\julia\Desktop\autoencoder\banana_train'
+
+TRAIN_DIR = r'C:\Users\julia\Desktop\autoencoder\banana_train'
+TEST_DIR  = r'C:\Users\julia\Desktop\autoencoder\banana'
 TRANSFORMATION = None
 
 def load_images_from_folder(folder, max_images=None):
@@ -232,6 +235,16 @@ def sigmoid_backward(dout, x):
     s = sigmoid(x)
     return dout * s * (1 - s)
 
+
+def binary_accuracy(y_true, y_pred, threshold=0.5):
+    """
+    Binarize both true and predicted images przy zadanym progu,
+    a następnie policz odsetek pikseli zgadzających się.
+    """
+    y_t = (y_true >= threshold).astype(np.float32)
+    y_p = (y_pred >= threshold).astype(np.float32)
+    return np.mean(y_t == y_p)
+
 # ====================================================
 # 6. Autoenkoder – forward i backward
 # ====================================================
@@ -311,47 +324,138 @@ params = {
 
 x_train = train_images  # (900, 32, 32)
 
-learning_rate = 0.0002
-epochs = 260
+learning_rate = 0.000005
+epochs = 100
 loss_history = []
+accuracy_history = []
 
 for epoch in range(epochs):
     out, cache = autoencoder_forward(x_train, params)
     loss, dloss = mse_loss(x_train, out)
+    acc = binary_accuracy(x_train, out)
+
     loss_history.append(loss)
-    
+    accuracy_history.append(acc)
+
     grads = autoencoder_backward(dloss, cache, params)
-    
     params['w_enc'] -= learning_rate * grads['w_enc']
     params['b_enc'] -= learning_rate * grads['b_enc']
     params['w_dec'] -= learning_rate * grads['w_dec']
     params['b_dec'] -= learning_rate * grads['b_dec']
-    
+
     if epoch % 10 == 0:
-        print(f"Epoch {epoch}, Loss: {loss:.6f}")
+        print(f"Epoch {epoch}, Loss: {loss:.6f}, Accuracy: {acc:.4f}")
 
 # ====================================================
-# 8. Wizualizacja wyników
+# 7. Wizualizacja Loss i Accuracy
 # ====================================================
 
-plt.figure(figsize=(6,4))
+plt.figure(figsize=(12,5))
+plt.subplot(1,2,1)
 plt.plot(loss_history)
 plt.title("Spadek straty (MSE)")
 plt.xlabel("Epoka")
 plt.ylabel("Loss")
-plt.show()
-
-out, _ = autoencoder_forward(x_train, params)
-sample_idx = 0
-
-plt.figure(figsize=(8,4))
-plt.subplot(1,2,1)
-plt.title("Oryginalny obraz")
-plt.imshow(x_train[sample_idx], cmap='gray')
-plt.axis('off')
 
 plt.subplot(1,2,2)
-plt.title("Rekonstrukcja")
-plt.imshow(out[sample_idx], cmap='gray')
-plt.axis('off')
+plt.plot(accuracy_history)
+plt.title("Accuracy rekonstrukcji")
+plt.xlabel("Epoka")
+plt.ylabel("Accuracy")
+
+plt.tight_layout()
+plt.show()
+
+# ====================================================
+# 8. Przykładowa rekonstrukcja
+# ====================================================
+
+# Generujemy rekonstrukcje na całym zbiorze treningowym
+out_final, _ = autoencoder_forward(x_train, params)
+
+# --- 1) MSE ---
+mse_val, _ = mse_loss(x_train, out_final)
+
+# --- 2) PSNR ---
+def psnr(y_true, y_pred, data_range=1.0):
+    mse = np.mean((y_true - y_pred)**2)
+    if mse == 0:
+        return float('inf')
+    return 10 * np.log10((data_range**2) / mse)
+
+psnr_val = psnr(x_train, out_final)
+
+# --- 3) Ręczne SSIM ---
+def ssim_global(y_true, y_pred, data_range=1.0, K1=0.01, K2=0.03):
+    x = y_true.flatten()
+    y = y_pred.flatten()
+    mu_x, mu_y = x.mean(), y.mean()
+    sigma_x2 = x.var()
+    sigma_y2 = y.var()
+    sigma_xy = ((x - mu_x)*(y - mu_y)).mean()
+    C1 = (K1*data_range)**2
+    C2 = (K2*data_range)**2
+    num = (2*mu_x*mu_y + C1)*(2*sigma_xy + C2)
+    den = (mu_x**2 + mu_y**2 + C1)*(sigma_x2 + sigma_y2 + C2)
+    return num/den
+
+ssim_vals = [ssim_global(x_train[i], out_final[i]) for i in range(len(x_train))]
+ssim_mean = np.mean(ssim_vals)
+
+# --- Drukujemy wyniki ---
+print(f"MSE:  {mse_val:.6f}")
+print(f"PSNR: {psnr_val:.2f} dB")
+print(f"SSIM: {ssim_mean:.4f}")
+
+# --- 4) Wizualizacja jednej pary oryginał ↔ rekonstrukcja ---
+sample_idx = 0
+plt.figure(figsize=(8,4))
+
+plt.subplot(1,2,1)
+plt.plot(loss_history, epochs)
+plt.xlabel("Loss (MSE)")
+plt.ylabel("Epoka")
+plt.title("Spadek straty (MSE)")
+
+# 2) Accuracy na osi X, Epoka na osi Y
+plt.subplot(1,2,2)
+plt.plot(accuracy_history, epochs)
+plt.xlabel("Accuracy rekonstrukcji")
+plt.ylabel("Epoka")
+plt.title("Accuracy vs Epoka")
+
+plt.tight_layout()
+plt.show()
+# ====================================================
+# 9. Ewaluacja na zbiorze testowym
+# ====================================================
+# Generujemy rekonstrukcje na zbiorze testowym
+out_test, _ = autoencoder_forward(test_images, params)
+
+# 1) MSE
+mse_test, _ = mse_loss(test_images, out_test)
+
+# 2) PSNR
+psnr_test = psnr(test_images, out_test)
+
+# 3) SSIM
+ssim_test_vals = [ssim_global(test_images[i], out_test[i]) for i in range(len(test_images))]
+ssim_test_mean = np.mean(ssim_test_vals)
+
+# Drukujemy wyniki
+print(f"Test set MSE:  {mse_test:.6f}")
+print(f"Test set PSNR: {psnr_test:.2f} dB")
+print(f"Test set SSIM: {ssim_test_mean:.4f}")
+# --- 1) Średnia accuracy po treningu ---
+mean_train_acc = np.mean(accuracy_history)
+print(f"Średnia accuracy na zbiorze treningowym: {mean_train_acc:.4f}")
+
+# --- 2) Accuracy na zbiorze testowym ---
+# Zakładam, że masz już out_test z autoencoder_forward(test_images, params)
+acc_test = binary_accuracy(test_images, out_test)
+print(f"Accuracy na zbiorze testowym:        {acc_test:.4f}")
+
+
+
+plt.tight_layout()
 plt.show()

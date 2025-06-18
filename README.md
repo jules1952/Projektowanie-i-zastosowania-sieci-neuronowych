@@ -18,7 +18,7 @@ Autoenkoder wczytuje obrazy z lokalnego folderu, przekształca je na tensory, uc
 
 ## 🚀 Jak uruchomić
 
-1. **Zainstaluj wymagane biblioteki** (jeśli jeszcze nie masz):
+1. **Zainstaluj wymagane biblioteki** :
 
 ```bash
 pip install numpy pillow matplotlib
