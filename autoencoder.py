@@ -409,20 +409,21 @@ print(f"SSIM: {ssim_mean:.4f}")
 
 # --- 4) Wizualizacja jednej pary oryginał ↔ rekonstrukcja ---
 sample_idx = 0
-plt.figure(figsize=(8,4))
+plt.figure(figsize=(12,5))
 
+# Loss
 plt.subplot(1,2,1)
 plt.plot(loss_history, epochs)
 plt.xlabel("Loss (MSE)")
 plt.ylabel("Epoka")
-plt.title("Spadek straty (MSE)")
+plt.title("Loss vs Epoka (osi zamienione)")
 
-# 2) Accuracy na osi X, Epoka na osi Y
+# Accuracy
 plt.subplot(1,2,2)
 plt.plot(accuracy_history, epochs)
 plt.xlabel("Accuracy rekonstrukcji")
 plt.ylabel("Epoka")
-plt.title("Accuracy vs Epoka")
+plt.title("Accuracy vs Epoka (osi zamienione)")
 
 plt.tight_layout()
 plt.show()
